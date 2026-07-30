@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@plugin "flowbite/plugin";
+@source "../node_modules/flowbite";
+
+
+*{
+    font-family: "Quicksand", sans-serif;
+    font-style: normal;
+    font-weight:500
+}
