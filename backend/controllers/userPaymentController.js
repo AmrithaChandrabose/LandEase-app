@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Transaction = require('../models/Transaction');
 const ActiveLease = require('../models/ActiveLease');
 const Settings = require('../models/Settings');
@@ -10,10 +11,9 @@ const {
 const { createNotification } = require('../utils/notify');
 
 /*
- * DEMO PAYMENT FLOW (seeker side)
- *   1) POST /api/user/payments/create-intent  { leaseId }  -> pending transaction + demo order
- *   2) POST /api/user/payments/verify         { transactionId, success } -> marks success, lease paid
- * Mirrors a real gateway so Stripe/Razorpay can slot in later (see REAL GATEWAY notes).
+ * STRIPE PAYMENT FLOW (seeker side)
+ *   1) POST /api/user/payments/create-intent  { leaseId }  -> pending transaction + Stripe Session URL
+ *   2) POST /api/user/payments/verify         { transactionId, success, stripeSessionId } -> retrieve & verify session, lease paid
  */
 
 // GET /api/user/payments/summary  - spending overview
@@ -99,7 +99,7 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
     throw new Error('leaseId is required');
   }
 
-  const lease = await ActiveLease.findById(leaseId);
+  const lease = await ActiveLease.findById(leaseId).populate('landId');
   if (!lease) {
     res.status(404);
     throw new Error('Lease not found');
@@ -113,31 +113,64 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
     throw new Error('This lease is already paid');
   }
 
-  const demoOrderId = 'demo_order_' + crypto.randomBytes(8).toString('hex');
-
+  // Create a pending transaction record
   const transaction = await Transaction.create({
     leaseId: lease._id,
     payerId: lease.seekerId,
     receiverId: lease.ownerId,
     amount: lease.rentAmount,
-    paymentMethod: 'demo',
-    transactionReference: demoOrderId,
-    gatewayOrderId: demoOrderId,
-    isDemo: true,
+    paymentMethod: 'card',
+    transactionReference: 'pending_session',
+    gatewayOrderId: 'pending_session',
+    isDemo: false,
     status: 'pending',
   });
 
+  // Create Stripe Checkout Session
+  const lineItems = [
+    {
+      price_data: {
+        currency: 'inr',
+        product_data: {
+          name: `Rent for ${lease.landId?.title || 'Land Listing'}`,
+          description: `Location: ${lease.landId?.location || 'N/A'}. Rent amount: ₹${lease.rentAmount}/month.`,
+        },
+        unit_amount: Math.round(lease.rentAmount * 100),
+      },
+      quantity: 1,
+    },
+  ];
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+    success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}&transactionId=${transaction._id}`,
+    cancel_url: `http://localhost:5173/payment-error?transactionId=${transaction._id}`,
+    line_items: lineItems,
+    customer_email: req.user.email,
+  });
+
+  // Update transaction with actual Stripe Session ID
+  transaction.transactionReference = session.id;
+  transaction.gatewayOrderId = session.id;
+  await transaction.save();
+
   res.status(201).json({
-    message: 'Demo payment intent created. Call /verify to complete.',
+    message: 'Stripe payment session created.',
     transactionId: transaction._id,
-    order: { id: demoOrderId, amount: lease.rentAmount, currency: 'INR', mode: 'demo' },
-    // REAL GATEWAY: return the client_secret / order details here.
+    order: {
+      id: session.id,
+      amount: lease.rentAmount,
+      currency: 'INR',
+      mode: 'stripe',
+      url: session.url,
+    },
   });
 });
 
 // POST /api/user/payments/verify  - step 2
 const verifyPayment = asyncHandler(async (req, res) => {
-  const { transactionId, success = true, paymentMethod } = req.body;
+  const { transactionId, success = true, stripeSessionId } = req.body;
   if (!transactionId) {
     res.status(400);
     throw new Error('transactionId is required');
@@ -157,13 +190,25 @@ const verifyPayment = asyncHandler(async (req, res) => {
     throw new Error(`Transaction already ${transaction.status}`);
   }
 
-  /*
-   * REAL GATEWAY: verify the gateway signature here before marking success.
-   */
+  let paymentSuccess = success;
+  let gatewayPaymentId = '';
 
-  const demoPaymentId = 'demo_pay_' + crypto.randomBytes(8).toString('hex');
+  if (success && stripeSessionId) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+      if (session.payment_status === 'paid') {
+        paymentSuccess = true;
+        gatewayPaymentId = session.payment_intent || stripeSessionId;
+      } else {
+        paymentSuccess = false;
+      }
+    } catch (err) {
+      res.status(400);
+      throw new Error('Stripe session retrieval failed: ' + err.message);
+    }
+  }
 
-  if (success) {
+  if (paymentSuccess) {
     const lease = await ActiveLease.findById(transaction.leaseId);
     const settings = await Settings.getSettings();
 
@@ -174,8 +219,8 @@ const verifyPayment = asyncHandler(async (req, res) => {
     const netOwnerAmount = transaction.amount - commissionAmount;
 
     transaction.status = 'success';
-    transaction.gatewayPaymentId = demoPaymentId;
-    if (paymentMethod) transaction.paymentMethod = paymentMethod;
+    transaction.gatewayPaymentId = gatewayPaymentId;
+    transaction.paymentMethod = 'card';
     transaction.commissionPercent = commissionPercent;
     transaction.commissionAmount = commissionAmount;
     transaction.netOwnerAmount = netOwnerAmount;
@@ -207,9 +252,16 @@ const verifyPayment = asyncHandler(async (req, res) => {
     await transaction.save();
   }
 
+  const populatedTransaction = await Transaction.findById(transaction._id)
+    .populate('receiverId', 'fullName email')
+    .populate({
+      path: 'leaseId',
+      populate: { path: 'landId', select: 'title location' },
+    });
+
   res.json({
-    message: success ? 'Payment successful (demo)' : 'Payment failed (demo)',
-    transaction,
+    message: paymentSuccess ? 'Payment successful' : 'Payment failed',
+    transaction: populatedTransaction || transaction,
   });
 });
 

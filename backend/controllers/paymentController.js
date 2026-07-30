@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Transaction = require('../models/Transaction');
 const ActiveLease = require('../models/ActiveLease');
 const Settings = require('../models/Settings');
@@ -6,21 +7,16 @@ const { asyncHandler } = require('../utils/helpers');
 const { createNotification } = require('../utils/notify');
 
 /*
- * DEMO PAYMENT FLOW
+ * STRIPE PAYMENT FLOW
  * -----------------
- * This mirrors how a real gateway (Stripe / Razorpay) integration works so you
- * can swap in the real SDK later with minimal changes.
- *
  * 1) POST /api/payments/create-intent
  *    - Client sends leaseId.
- *    - Server creates a "pending" Transaction and returns an order object
- *      (demo order id + amount). With Stripe this is a PaymentIntent; with
- *      Razorpay this is an Order.
+ *    - Server creates a pending Transaction and a Stripe Checkout Session.
+ *    - Server returns the transactionId and the Stripe Checkout Session URL.
  *
- * 2) Client "pays" (in demo, immediately calls verify).
+ * 2) Client is redirected to Stripe Checkout to pay.
  *
  * 3) POST /api/payments/verify
- *    - Client sends transactionId (+ gateway signature fields in real mode).
  *    - Server marks the Transaction "success", flags the lease as paid, and
  *      notifies both parties. In real mode you'd verify the gateway signature
  *      here before marking success.
@@ -34,7 +30,7 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
     throw new Error('leaseId is required');
   }
 
-  const lease = await ActiveLease.findById(leaseId);
+  const lease = await ActiveLease.findById(leaseId).populate('landId');
   if (!lease) {
     res.status(404);
     throw new Error('Lease not found');
@@ -49,36 +45,63 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
   }
 
   // Create a pending transaction record
-  const demoOrderId = 'demo_order_' + crypto.randomBytes(8).toString('hex');
-
   const transaction = await Transaction.create({
     leaseId: lease._id,
     payerId: lease.seekerId,
     receiverId: lease.ownerId,
     amount: lease.rentAmount,
-    paymentMethod: 'demo',
-    transactionReference: demoOrderId,
-    gatewayOrderId: demoOrderId,
-    isDemo: true,
+    paymentMethod: 'card',
+    transactionReference: 'pending_session',
+    gatewayOrderId: 'pending_session',
+    isDemo: false,
     status: 'pending',
   });
 
+  // Create Stripe Checkout Session
+  const lineItems = [
+    {
+      price_data: {
+        currency: 'inr',
+        product_data: {
+          name: `Rent for ${lease.landId?.title || 'Land Listing'}`,
+          description: `Location: ${lease.landId?.location || 'N/A'}. Rent amount: ₹${lease.rentAmount}/month.`,
+        },
+        unit_amount: Math.round(lease.rentAmount * 100),
+      },
+      quantity: 1,
+    },
+  ];
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+    success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}&transactionId=${transaction._id}`,
+    cancel_url: `http://localhost:5173/payment-error?transactionId=${transaction._id}`,
+    line_items: lineItems,
+    customer_email: req.user.email,
+  });
+
+  // Update transaction with actual Stripe Session ID
+  transaction.transactionReference = session.id;
+  transaction.gatewayOrderId = session.id;
+  await transaction.save();
+
   res.status(201).json({
-    message: 'Demo payment intent created. Call /verify to complete.',
+    message: 'Stripe payment session created.',
     transactionId: transaction._id,
     order: {
-      id: demoOrderId,
+      id: session.id,
       amount: lease.rentAmount,
       currency: 'INR',
-      mode: 'demo',
+      mode: 'stripe',
+      url: session.url,
     },
-    // When you connect a real gateway, return the client_secret / order details here.
   });
 });
 
 // POST /api/payments/verify  (seeker)
 const verifyPayment = asyncHandler(async (req, res) => {
-  const { transactionId, success = true, paymentMethod } = req.body;
+  const { transactionId, success = true, stripeSessionId } = req.body;
 
   if (!transactionId) {
     res.status(400);
@@ -99,16 +122,25 @@ const verifyPayment = asyncHandler(async (req, res) => {
     throw new Error(`Transaction already ${transaction.status}`);
   }
 
-  /*
-   * REAL GATEWAY: verify the signature here, e.g. for Razorpay:
-   *   const expected = crypto.createHmac('sha256', KEY_SECRET)
-   *     .update(order_id + '|' + payment_id).digest('hex');
-   *   if (expected !== signature) -> mark failed / throw
-   */
+  let paymentSuccess = success;
+  let gatewayPaymentId = '';
 
-  const demoPaymentId = 'demo_pay_' + crypto.randomBytes(8).toString('hex');
+  if (success && stripeSessionId) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+      if (session.payment_status === 'paid') {
+        paymentSuccess = true;
+        gatewayPaymentId = session.payment_intent || stripeSessionId;
+      } else {
+        paymentSuccess = false;
+      }
+    } catch (err) {
+      res.status(400);
+      throw new Error('Stripe session retrieval failed: ' + err.message);
+    }
+  }
 
-  if (success) {
+  if (paymentSuccess) {
     const lease = await ActiveLease.findById(transaction.leaseId);
     const settings = await Settings.getSettings();
 
@@ -119,8 +151,8 @@ const verifyPayment = asyncHandler(async (req, res) => {
     const netOwnerAmount = transaction.amount - commissionAmount;
 
     transaction.status = 'success';
-    transaction.gatewayPaymentId = demoPaymentId;
-    if (paymentMethod) transaction.paymentMethod = paymentMethod;
+    transaction.gatewayPaymentId = gatewayPaymentId;
+    transaction.paymentMethod = 'card';
     transaction.commissionPercent = commissionPercent;
     transaction.commissionAmount = commissionAmount;
     transaction.netOwnerAmount = netOwnerAmount;
@@ -153,9 +185,16 @@ const verifyPayment = asyncHandler(async (req, res) => {
     await transaction.save();
   }
 
+  const populatedTransaction = await Transaction.findById(transaction._id)
+    .populate('receiverId', 'fullName email')
+    .populate({
+      path: 'leaseId',
+      populate: { path: 'landId', select: 'title location' },
+    });
+
   res.json({
-    message: success ? 'Payment successful (demo)' : 'Payment failed (demo)',
-    transaction,
+    message: paymentSuccess ? 'Payment successful' : 'Payment failed',
+    transaction: populatedTransaction || transaction,
   });
 });
 

@@ -16,6 +16,8 @@ import LandDetails from './User/Pages/LandDetails.jsx'
 import LeaseRequests from './User/Pages/LeaseRequests.jsx'
 import ActiveLeases from './User/Pages/ActiveLeases.jsx'
 import PaymentHistory from './User/Pages/PaymentHistory.jsx'
+import PaymentSuccess from './User/Pages/PaymentSuccess.jsx'
+import PaymentError from './User/Pages/PaymentError.jsx'
 import Notifications from './User/Pages/Notifications.jsx'
 import Profile from './Pages/shared/Profile.jsx'
 
@@ -72,6 +74,8 @@ function App() {
         <Route path="user/requests" element={<ProtectedRoute allowedRoles={['user']}><LeaseRequests /></ProtectedRoute>} />
         <Route path="user/leases" element={<ProtectedRoute allowedRoles={['user']}><ActiveLeases /></ProtectedRoute>} />
         <Route path="user/payments" element={<ProtectedRoute allowedRoles={['user']}><PaymentHistory /></ProtectedRoute>} />
+        <Route path="payment-success" element={<ProtectedRoute allowedRoles={['user']}><PaymentSuccess /></ProtectedRoute>} />
+        <Route path="payment-error" element={<ProtectedRoute allowedRoles={['user']}><PaymentError /></ProtectedRoute>} />
         <Route path="user/notifications" element={<ProtectedRoute allowedRoles={['user', 'owner', 'admin']}><Notifications /></ProtectedRoute>} />
         <Route path="profile" element={<ProtectedRoute allowedRoles={['user', 'owner', 'admin']}><Profile /></ProtectedRoute>} />
 

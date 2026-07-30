@@ -16,21 +16,17 @@ function ActiveLeases() {
   const handlePayLease = async (leaseId) => {
     setPayingLeaseId(leaseId);
     try {
-      // Step 1: Create payment intent
+      // Step 1: Create Stripe Checkout Session
       const intent = await createPaymentIntent(leaseId);
 
-      // Step 2: Verify payment (demo simulation)
-      await verifyPayment({
-        transactionId: intent.transactionId,
-        success: true,
-        paymentMethod: 'upi'
-      });
-
-      alert('Rent paid successfully (demo payment)!');
-      fetchLeases({ page, status, limit: 10 }); // Refresh list to update isPaid state
+      if (intent && intent.order && intent.order.url) {
+        // Step 2: Redirect user to Stripe Checkout hosting
+        window.location.href = intent.order.url;
+      } else {
+        throw new Error('Could not retrieve payment checkout URL.');
+      }
     } catch (err) {
-      alert(err.message || 'Payment failed');
-    } finally {
+      alert(err.message || 'Payment initiation failed');
       setPayingLeaseId(null);
     }
   };
