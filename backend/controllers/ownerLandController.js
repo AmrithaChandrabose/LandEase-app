@@ -71,13 +71,17 @@ const createLand = asyncHandler(async (req, res) => {
     area,
     minLeaseDuration,
     price,
-    images,
     status,
   } = req.body;
 
   if (!title || !location || !area || !minLeaseDuration || price === undefined) {
     res.status(400);
     throw new Error('title, location, area, minLeaseDuration and price are required');
+  }
+
+  let images = [];
+  if (req.files && req.files.length > 0) {
+    images = req.files.map(file => `uploads/lands/${file.filename}`);
   }
 
   const land = await Land.create({
@@ -90,7 +94,7 @@ const createLand = asyncHandler(async (req, res) => {
     minLeaseDuration,
     minLeaseDurationInMonths: parseLeadingNumber(minLeaseDuration),
     price: Number(price),
-    images: Array.isArray(images) ? images : [],
+    images: images,
     status: status || 'available',
   });
 
@@ -109,10 +113,29 @@ const updateLand = asyncHandler(async (req, res) => {
     throw new Error('Not authorized to edit this land');
   }
 
-  const fields = ['title', 'description', 'location', 'price', 'images'];
+  const fields = ['title', 'description', 'location', 'price', 'status'];
   fields.forEach((f) => {
     if (req.body[f] !== undefined) land[f] = req.body[f];
   });
+
+  // Handle existing and new images
+  let images = land.images;
+  if (req.body.existingImages !== undefined) {
+    try {
+      images = typeof req.body.existingImages === 'string'
+        ? JSON.parse(req.body.existingImages)
+        : req.body.existingImages;
+    } catch (e) {
+      images = [];
+    }
+  }
+
+  if (req.files && req.files.length > 0) {
+    const newImages = req.files.map(file => `uploads/lands/${file.filename}`);
+    images = [...images, ...newImages];
+  }
+  land.images = images;
+
   if (req.body.area !== undefined) {
     land.area = req.body.area;
     land.areaInAcres = parseLeadingNumber(req.body.area);

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from 'flowbite-react';
+import { resolveImageUrl } from '../../services/api';
 
 function LandDetails() {
   const { id } = useParams();
@@ -80,7 +81,7 @@ function LandDetails() {
         {/* Land Banner */}
         <div className="relative mb-8 h-96 overflow-hidden rounded-2xl shadow-md">
           <img
-            src={land.images?.[0] || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef'}
+            src={resolveImageUrl(land.images?.[0] || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef')}
             alt={land.title}
             className="h-full w-full object-cover"
           />

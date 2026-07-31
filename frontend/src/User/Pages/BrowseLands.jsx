@@ -4,6 +4,7 @@ import LandSearchFilter from "../../Components/common/LandSearchFilter";
 import { Button } from 'flowbite-react';
 import { useUser } from '../../contexts/UserContext';
 import { Link } from 'react-router-dom';
+import { resolveImageUrl } from '../../services/api';
 
 function BrowseLands() {
   const { lands, loading, error, fetchLands } = useUser();
@@ -50,7 +51,7 @@ function BrowseLands() {
                     className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                   >
                     <img
-                      src={land.images?.[0] || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef'}
+                      src={resolveImageUrl(land.images?.[0]) || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef'}
                       alt={land.title}
                       className="h-48 w-full object-cover"
                     />

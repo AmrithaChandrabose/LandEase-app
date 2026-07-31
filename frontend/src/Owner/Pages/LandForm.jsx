@@ -3,7 +3,7 @@ import UserLayout from '../../Layouts/UserLayout';
 import { useOwner } from '../../contexts/OwnerContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from 'flowbite-react';
-import { apiFetch } from '../../services/api';
+import { apiFetch, resolveImageUrl } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 function LandForm({ mode = 'create' }) {
@@ -18,7 +18,10 @@ function LandForm({ mode = 'create' }) {
   const [area, setArea] = useState('');
   const [minLeaseDuration, setMinLeaseDuration] = useState('');
   const [price, setPrice] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
   
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -37,7 +40,7 @@ function LandForm({ mode = 'create' }) {
           setArea(land.area || '');
           setMinLeaseDuration(land.minLeaseDuration || '');
           setPrice(land.price || '');
-          setImageUrl(land.images?.[0] || '');
+          setExistingImages(land.images || []);
         } catch (err) {
           setError(err.message || 'Failed to load land details');
         } finally {
@@ -48,25 +51,67 @@ function LandForm({ mode = 'create' }) {
     }
   }, [mode, id, token]);
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setError(null);
+    
+    const validFiles = [];
+    const validPreviews = [];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSizeBytes = 5 * 1024 * 1024; // 5 MB
+    
+    for (let file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        setError(`File "${file.name}" is not a valid image format. Only JPEG, JPG, PNG, and WebP are allowed.`);
+        return;
+      }
+      if (file.size > maxSizeBytes) {
+        setError(`File "${file.name}" exceeds the 5 MB limit.`);
+        return;
+      }
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
+    }
+    
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    setPreviews(prev => [...prev, ...validPreviews]);
+  };
+
+  const removeSelectedFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const removeExistingImage = (index) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const landData = {
-        title,
-        description,
-        location,
-        area,
-        minLeaseDuration,
-        price: Number(price),
-        images: imageUrl ? [imageUrl] : []
-      };
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('location', location);
+      formData.append('area', area);
+      formData.append('minLeaseDuration', minLeaseDuration);
+      formData.append('price', Number(price));
+      
+      formData.append('existingImages', JSON.stringify(existingImages));
+      
+      selectedFiles.forEach((file) => {
+        formData.append('images', file);
+      });
 
       if (mode === 'create') {
-        await createLand(landData);
+        await createLand(formData);
       } else {
-        await updateLand(id, landData);
+        await updateLand(id, formData);
       }
       navigate('/owner/lands');
     } catch (err) {
@@ -183,15 +228,61 @@ function LandForm({ mode = 'create' }) {
               </div>
             </div>
 
+            {/* Existing Images (for edit mode) */}
+            {existingImages.length > 0 && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Existing Images</label>
+                <div className="flex flex-wrap gap-3">
+                  {existingImages.map((img, i) => (
+                    <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+                      <img src={resolveImageUrl(img)} alt="Existing" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(i)}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow hover:bg-red-700 focus:outline-none"
+                        title="Remove image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Image Previews */}
+            {previews.length > 0 && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">New Image Previews</label>
+                <div className="flex flex-wrap gap-3">
+                  {previews.map((previewUrl, i) => (
+                    <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedFile(i)}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow hover:bg-red-700 focus:outline-none"
+                        title="Remove image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* File Upload Field */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Image URL</label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Upload Land Photos</label>
               <input
-                type="url"
-                placeholder="https://images.unsplash.com/..."
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-lime-500 focus:outline-none"
+                type="file"
+                multiple
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleFileChange}
+                className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-lime-500 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-lime-50 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-lime-700 hover:file:bg-lime-100 dark:bg-gray-800 dark:border-gray-700"
               />
+              <p className="mt-1 text-xs text-gray-400">Supported formats: JPEG, JPG, PNG, WebP (Max 5 MB per image).</p>
             </div>
 
             <div className="flex gap-4 pt-4">

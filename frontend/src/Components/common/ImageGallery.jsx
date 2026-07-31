@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveImageUrl } from '../../services/api'
 
 export default function ImageGallery({ images = [], title = '' }) {
   const [active, setActive] = useState(0)
@@ -8,7 +9,7 @@ export default function ImageGallery({ images = [], title = '' }) {
   return (
     <div>
       <div className="overflow-hidden rounded-2xl">
-        <img src={images[active]} alt={`${title} ${active + 1}`} className="h-72 w-full object-cover sm:h-96" />
+        <img src={resolveImageUrl(images[active])} alt={`${title} ${active + 1}`} className="h-72 w-full object-cover sm:h-96" />
       </div>
       {images.length > 1 && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -20,7 +21,7 @@ export default function ImageGallery({ images = [], title = '' }) {
                 i === active ? 'border-brand-600' : 'border-transparent opacity-70 hover:opacity-100'
               }`}
             >
-              <img src={img} alt={`thumb ${i + 1}`} className="h-full w-full object-cover" />
+              <img src={resolveImageUrl(img)} alt={`thumb ${i + 1}`} className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

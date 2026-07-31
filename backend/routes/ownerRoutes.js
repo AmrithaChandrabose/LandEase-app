@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { protect, authorize } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const {
   getDashboardStats,
@@ -42,9 +43,9 @@ router.get('/dashboard/stats', getDashboardStats);
 
 // ---- Lands (my listings) ----
 router.get('/lands', getMyLands);
-router.post('/lands', createLand);
+router.post('/lands', upload.array('images', 10), createLand);
 router.get('/lands/:id', getMyLandById);
-router.put('/lands/:id', updateLand);
+router.put('/lands/:id', upload.array('images', 10), updateLand);
 router.put('/lands/:id/status', updateLandStatus);
 router.delete('/lands/:id', deleteLand);
 

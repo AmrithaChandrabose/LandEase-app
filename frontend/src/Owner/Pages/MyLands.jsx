@@ -3,6 +3,7 @@ import UserLayout from '../../Layouts/UserLayout';
 import { useOwner } from '../../contexts/OwnerContext';
 import { Button } from 'flowbite-react';
 import { Link } from 'react-router-dom';
+import { resolveImageUrl } from '../../services/api';
 
 function MyLands() {
   const { lands, loading, error, fetchLands, deleteLand } = useOwner();
@@ -65,7 +66,7 @@ function MyLands() {
                   className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
                 >
                   <img
-                    src={land.images?.[0] || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef'}
+                    src={resolveImageUrl(land.images?.[0])}
                     alt={land.title}
                     className="h-48 w-full object-cover"
                   />

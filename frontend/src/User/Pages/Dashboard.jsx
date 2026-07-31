@@ -124,7 +124,7 @@ const [user, setUser] = useState(null);
                     className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-lime-100/30"
                   >
                     <img
-                      src={land.images?.[0] || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef'}
+                      src={resolveImageUrl(land.images?.[0])}
                       alt={land.title}
                       className="h-52 w-full object-cover"
                     />
