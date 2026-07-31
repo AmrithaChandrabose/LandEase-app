@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import UserLayout from "../../Layouts/UserLayout";
 import { useUser } from "../../contexts/UserContext";
 import { Button } from "flowbite-react";
+import { resolveImageUrl } from "../../services/api";
+
 
 function Dashboard() {
   const { dashboard, lands, loading, error, fetchDashboard, fetchLands } = useUser();
