@@ -2,6 +2,11 @@ import React, { useEffect, useState } from 'react';
 import UserLayout from '../../Layouts/UserLayout';
 import { apiFetch } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+// import 'jspdf-autotable';
+
+
 
 function Reports() {
   const { token } = useAuth();
@@ -35,24 +40,96 @@ function Reports() {
     }
   }, [token]);
 
-  const handleExportCSV = async () => {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportPDF = async () => {
+    setExporting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/admin/reports/export/transactions', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const data = await apiFetch('/api/admin/transactions?limit=10000', { token });
+      
+      const doc = new jsPDF();
+      
+      // Header branding
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(101, 163, 13); // Lime 600
+      doc.text("LandEase", 14, 20);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Land Leasing Platform - Administration", 14, 25);
+      
+      // Title
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Transaction Report", 14, 38);
+      
+      // Details
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      const timestamp = new Date().toLocaleString();
+      doc.text(`Generated on: ${timestamp}`, 14, 44);
+      doc.text(`Status Filter: ALL`, 14, 49);
+      
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 54, 196, 54);
+      
+      const tableHeaders = [
+        ["Transaction ID", "User Name", "Land Title", "Amount", "Method", "Status", "Date"]
+      ];
+      
+      const tableRows = (data.data || []).map(t => [
+        t.transactionReference || t._id,
+        t.payerId?.fullName || "N/A",
+        t.leaseId?.landId?.title || "N/A",
+        `₹${t.amount?.toLocaleString()}`,
+        t.paymentMethod?.toUpperCase() || "DEMO",
+        t.status?.toUpperCase() || "PENDING",
+        new Date(t.createdAt).toLocaleDateString()
+      ]);
+      
+      autoTable(doc,{
+        startY: 60,
+        head: tableHeaders,
+        body: tableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [101, 163, 13],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [51, 65, 85]
+        },
+        alternateRowStyles: {
+          fillColor: [247, 254, 231]
+        },
+        margin: { left: 14, right: 14 },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 18 },
+          6: { cellWidth: 18 }
         }
       });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'transactions_export.csv';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      
+      doc.save(`transaction_report_${new Date().toISOString().slice(0,10)}.pdf`);
     } catch (err) {
-      alert(err.message || 'Export failed');
+      alert(err.message || 'Export to PDF failed');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -90,10 +167,11 @@ function Reports() {
             <p className="text-sm text-gray-500">View performance indicators and system diagnostics.</p>
           </div>
           <button
-            onClick={handleExportCSV}
-            className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-semibold text-white hover:bg-lime-700 transition"
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-semibold text-white hover:bg-lime-700 transition disabled:opacity-50"
           >
-            Export Transactions (CSV)
+            {exporting ? 'Exporting...' : 'Export Transactions (PDF)'}
           </button>
         </div>
 

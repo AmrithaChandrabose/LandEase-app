@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import UserLayout from '../../Layouts/UserLayout';
 import { useAdmin } from '../../contexts/AdminContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiFetch } from '../../services/api';
+import { jsPDF } from 'jspdf';
+// import 'jspdf-autotable';
+import autoTable from "jspdf-autotable";
 import { Button } from 'flowbite-react';
 
 function Transactions() {
   const { transactions, loading, error, fetchTransactions } = useAdmin();
+  const { token } = useAuth();
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchTransactions({ status, page, limit: 10 });
@@ -15,6 +22,97 @@ function Transactions() {
   const handleStatusChange = (e) => {
     setStatus(e.target.value);
     setPage(1);
+  };
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const data = await apiFetch(`/api/admin/transactions?status=${status}&limit=10000`, { token });
+      
+      const doc = new jsPDF();
+      
+      // Header branding
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(101, 163, 13); // Lime 600
+      doc.text("LandEase", 14, 20);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Land Leasing Platform - Administration", 14, 25);
+      
+      // Title
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Transaction Report", 14, 38);
+      
+      // Details
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      const timestamp = new Date().toLocaleString();
+      doc.text(`Generated on: ${timestamp}`, 14, 44);
+      doc.text(`Status Filter: ${status ? status.toUpperCase() : 'ALL'}`, 14, 49);
+      
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 54, 196, 54);
+      
+      const tableHeaders = [
+        ["Transaction ID", "User Name", "Land Title", "Amount", "Method", "Status", "Date"]
+      ];
+      
+      const tableRows = (data.data || []).map(t => [
+        t.transactionReference || t._id,
+        t.payerId?.fullName || "N/A",
+        t.leaseId?.landId?.title || "N/A",
+        `₹${t.amount?.toLocaleString()}`,
+        t.paymentMethod?.toUpperCase() || "DEMO",
+        t.status?.toUpperCase() || "PENDING",
+        new Date(t.createdAt).toLocaleDateString()
+      ]);
+      
+    autoTable(doc,{
+        startY: 60,
+        head: tableHeaders,
+        body: tableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [101, 163, 13],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [51, 65, 85]
+        },
+        alternateRowStyles: {
+          fillColor: [247, 254, 231]
+        },
+        margin: { left: 14, right: 14 },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 18 },
+          6: { cellWidth: 18 }
+        }
+      });
+      
+      doc.save(`transaction_report_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch (err) {
+      alert(err.message || 'Export to PDF failed');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -32,18 +130,25 @@ function Transactions() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6">
+        {/* Filters and Actions */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <select
             value={status}
             onChange={handleStatusChange}
-            className="rounded-lg border border-gray-300 p-2 text-sm focus:border-lime-500 focus:outline-none"
+            className="rounded-lg border border-gray-300 p-2 text-sm focus:border-lime-500 focus:outline-none bg-white"
           >
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="success">Success</option>
             <option value="failed">Failed</option>
           </select>
+          <Button
+            onClick={handleExportPDF}
+            disabled={exporting || transactions.data.length === 0}
+            className="bg-lime-600 hover:bg-lime-700 text-white font-semibold flex items-center justify-center shadow-sm"
+          >
+            {exporting ? 'Exporting...' : 'Export PDF Report'}
+          </Button>
         </div>
 
         {error && (

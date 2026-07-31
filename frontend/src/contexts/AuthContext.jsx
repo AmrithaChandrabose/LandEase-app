@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
     });
     
     setToken(data.token);
+  
     localStorage.setItem('token', data.token);
     
     // The response also contains user data
@@ -54,8 +55,8 @@ export function AuthProvider({ children }) {
     });
 
     setToken(data.token);
+    
     localStorage.setItem('token', data.token);
-
     const { token: _token, ...userData } = data;
     setUser(userData);
     return userData;

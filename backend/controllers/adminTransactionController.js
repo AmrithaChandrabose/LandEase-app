@@ -35,6 +35,10 @@ const getAllTransactions = asyncHandler(async (req, res) => {
     Transaction.find(filter)
       .populate('payerId', 'fullName email')
       .populate('receiverId', 'fullName email')
+      .populate({
+        path: 'leaseId',
+        populate: { path: 'landId', select: 'title location' }
+      })
       .sort(sort)
       .skip(skip)
       .limit(limit),
