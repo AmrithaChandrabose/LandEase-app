@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "flowbite-react";
 import { useAuth } from "../../contexts/AuthContext";
+import ThemeToggle from "../../Components/common/ThemeToggle.jsx";
 
 function Register() {
   const [role, setRole] = useState("user");
@@ -32,7 +33,10 @@ function Register() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Left Side */}
       <div className="relative hidden lg:block">
         <img src="https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?auto=format&fit=crop&w=1000&q=70"

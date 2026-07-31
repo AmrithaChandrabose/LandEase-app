@@ -2,6 +2,7 @@ import { Button } from 'flowbite-react';
 import React, { useState } from 'react'
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from '../../contexts/AuthContext';
+import ThemeToggle from '../../Components/common/ThemeToggle.jsx';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -34,7 +35,10 @@ function Login() {
 
   return (
     <>
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
 
   {/* Left Side */}
   <div className="relative hidden lg:block">

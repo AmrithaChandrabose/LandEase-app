@@ -1,10 +1,127 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @plugin "flowbite/plugin";
 @source "../node_modules/flowbite";
 
 
-*{
+* {
     font-family: "Quicksand", sans-serif;
     font-style: normal;
-    font-weight:500
+    font-weight: 500;
+}
+
+/* Global Dark Mode CSS Overrides */
+body {
+    background-color: #f7fee7; /* lime-50 default background tint */
+    color: #1f2937; /* gray-800 */
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.dark body {
+    background-color: #030712 !important; /* gray-950 */
+    color: #f3f4f6 !important; /* gray-100 */
+}
+
+/* Form inputs & selections in dark mode */
+.dark input, .dark select, .dark textarea {
+    background-color: #1f2937 !important; /* gray-800 */
+    border-color: #374151 !important; /* gray-700 */
+    color: #f3f4f6 !important; /* gray-100 */
+}
+.dark input:focus, .dark select:focus, .dark textarea:focus {
+    border-color: #84cc16 !important; /* lime-500 */
+    outline: none !important;
+}
+
+/* Cards & containers in dark mode */
+.dark .bg-white {
+    background-color: #111827 !important; /* gray-900 */
+    border-color: #1f2937 !important; /* gray-800 */
+    color: #f3f4f6 !important;
+}
+.dark .bg-lime-50, .dark .bg-lime-100 {
+    background-color: #1e293b !important; /* slate-800 */
+    border-color: #334155 !important;
+}
+.dark .bg-lime-50\/50 {
+    background-color: rgba(30, 41, 59, 0.5) !important;
+}
+.dark .bg-gray-50, .dark .bg-gray-50\/50 {
+    background-color: #1f2937 !important; /* gray-800 */
+}
+
+/* Text styles in dark mode */
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-slate-800, .dark .text-brand-900 {
+    color: #f3f4f6 !important;
+}
+.dark .text-gray-700, .dark .text-slate-700 {
+    color: #d1d5db !important; /* gray-300 */
+}
+.dark .text-gray-600, .dark .text-gray-500, .dark .text-slate-500 {
+    color: #9ca3af !important; /* gray-400 */
+}
+.dark .text-lime-800, .dark .text-lime-700 {
+    color: #a3e635 !important; /* lime-400 */
+}
+
+/* Borders in dark mode */
+.dark .border, .dark .border-gray-200, .dark .border-lime-100, .dark .border-lime-200, .dark .border-brand-100 {
+    border-color: #1f2937 !important; /* gray-800 */
+}
+
+/* Landing Page Hero Gradient and custom colors override */
+.dark .bg-gradient-to-r.from-teal-100 {
+    background-image: linear-gradient(to right, #090d16, #0f172a, #1e293b) !important;
+}
+
+/* Layout header & navigation dark mode */
+.dark header {
+    background-color: rgba(17, 24, 39, 0.8) !important;
+    border-color: #1f2937 !important;
+}
+.dark nav a {
+    color: #d1d5db !important;
+}
+.dark nav a.bg-lime-500 {
+    background-color: #84cc16 !important;
+    color: #ffffff !important;
+}
+.dark nav a:not(.bg-lime-500):hover {
+    background-color: #1f2937 !important;
+    color: #a3e635 !important;
+}
+
+/* Tables dark mode */
+.dark table {
+    background-color: #111827 !important;
+}
+.dark thead {
+    background-color: #1f2937 !important;
+    color: #a3e635 !important;
+}
+.dark tr:hover {
+    background-color: #1e293b !important;
+}
+.dark td {
+    color: #d1d5db !important;
+    border-color: #1f2937 !important;
+}
+
+/* Buttons and interactions */
+.dark .bg-white.border-lime-200 {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #a3e635 !important;
+}
+.dark .bg-white.border-lime-200:hover {
+    background-color: #374151 !important;
+}
+.dark button.bg-lime-50 {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+}
+
+/* Footer border in dark mode */
+.dark footer {
+    border-color: #1f2937 !important;
 }

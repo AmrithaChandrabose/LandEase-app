@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from 'flowbite-react';
 import { apiFetch } from '../../services/api';
+import ThemeToggle from '../../Components/common/ThemeToggle.jsx';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -55,7 +56,10 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Left Banner */}
       <div className="relative hidden lg:block">
         <img

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from "react-router-dom";
+import ThemeToggle from '../../Components/common/ThemeToggle.jsx';
 
 const features = [
   {
@@ -22,9 +23,10 @@ function Landing() {
     <div className="min-h-screen bg-gradient-to-r from-teal-100 via-lime-100 to-lime-300">
       {/* Header */}
       <header className=" mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <h1 className="text-3xl font-bold  text-lime-700">Land Sharing & Leasing Platform  </h1>
-        <div className="flex gap-3">
-          <Link  to="/login" className="rounded-lg border border-lime-500 px-5 py-2 text-green-700 hover:bg-green-100" >
+        <h1 className="text-3xl font-bold text-lime-700">Land Sharing & Leasing Platform</h1>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link to="/login" className="rounded-lg border border-lime-500 px-5 py-2 text-green-700 hover:bg-green-100" >
             Sign In </Link>
           <Link to="/register" className="rounded-lg bg-lime-500 px-5 py-2 text-white hover:bg-lime-600" >Get Started</Link>
         </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { IconDashboard, IconSearch, IconRequest, IconLease, IconWallet, IconUser, IconBell } from '../Components/common/Icons.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import ThemeToggle from '../Components/common/ThemeToggle.jsx'
 
 const seekerNav = [
     { to: '/user', label: 'Dashboard', icon: <IconDashboard />, end: true },
@@ -88,6 +89,8 @@ function UserLayout() {
                             <IconBell />
                             <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow"> 0 </span>
                         </NavLink>
+
+                        <ThemeToggle />
 
                         {/* Profile Link Card */}
                         <NavLink 
