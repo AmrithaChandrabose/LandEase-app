@@ -118,7 +118,7 @@ function Profile() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Profile Image URL</label>
                 <input
                   type="url"
-                  placeholder="https://example.com/image.jpg"
+                  // placeholder="https://example.com/image.jpg"
                   value={profileImage}
                   onChange={(e) => setProfileImage(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-lime-500 focus:outline-none"
